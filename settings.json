@@ -1,0 +1,18 @@
+{
+  "name": "MyDAF",
+  "domain": "https://mydaf.id",
+  "city": "Bandung",
+  "wa": "6285795623791",
+  "phone": "+62 857-9562-3791",
+  "email": "info@mydaf.id",
+  "address": "Jl. Melati Utama No.1, Panyileukan, Bandung",
+  "areas": [
+    "Bandung",
+    "Cimahi",
+    "Lembang",
+    "Sumedang"
+  ],
+  "social": [],
+  "reviews": [],
+  "partners": []
+}

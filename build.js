@@ -2,34 +2,15 @@
 // Cloudflare Pages: Build command "npm run build", output directory "dist".
 const fs = require('fs'), path = require('path');
 
-// ===== EDIT DATA INI (tandai TODO = ganti dengan data asli) =====
-const C = {
-  name: 'MyDAF', domain: 'https://mydaf.id', city: 'Bandung',
-  wa: '6285795623791', phone: '+62 857-9562-3791',
-  email: 'info@mydaf.id', // TODO email asli
-  address: 'Jl. Melati Utama No.1, Panyileukan, Bandung', // TODO cek alamat lengkap + kode pos
-  areas: ['Bandung', 'Cimahi', 'Lembang', 'Sumedang'], // TODO area layanan
-  social: [], // contoh: ['https://instagram.com/akunanda']
-  reviews: [], // contoh: [{n:'Nama', t:'Isi testimoni asli'}]
-  partners: [], // contoh: ['Nama Instansi']
-};
-const S = [
-  { slug: 'nasi-box', name: 'Nasi Box', kw: 'Nasi Box Bandung', d: 'Nasi box praktis untuk rapat, seminar, pengajian, dan syukuran. Kemasan rapi, dikirim tepat waktu.',
-    f: ['Menu lauk bervariasi, bisa request', 'Kemasan higienis dan rapi', 'Order sedikit tetap dilayani', 'Pengiriman tepat waktu'],
-    q: [['Berapa minimal pemesanan nasi box?', 'Hubungi kami via WhatsApp untuk minimal order dan harga terbaru.'], ['Berapa lama sebelum acara harus memesan?', 'Disarankan H-2 sampai H-3 agar menu dan jadwal kirim terjamin.']] },
-  { slug: 'prasmanan', name: 'Prasmanan', kw: 'Catering Prasmanan Bandung', d: 'Catering prasmanan untuk pernikahan, arisan, dan acara keluarga atau kantor dengan menu lengkap.',
-    f: ['Pilihan paket sesuai jumlah tamu', 'Menu nusantara dan modern', 'Perlengkapan saji tersedia', 'Tim melayani saat acara'],
-    q: [['Apakah sudah termasuk peralatan saji?', 'Tergantung paket. Tanyakan detail paket ke tim kami.'], ['Bisa untuk acara pernikahan?', 'Bisa. Kami melayani resepsi, akad, dan acara syukuran.']] },
-  { slug: 'tumpeng', name: 'Tumpeng', kw: 'Tumpeng Bandung', d: 'Tumpeng untuk syukuran, ulang tahun, dan peresmian, dengan lauk lengkap dan tampilan menarik.',
-    f: ['Ukuran sesuai jumlah porsi', 'Lauk pendamping lengkap', 'Dekorasi rapi', 'Bisa diantar ke lokasi acara'],
-    q: [['Tumpeng untuk berapa orang?', 'Ada beberapa ukuran. Sebutkan jumlah tamu, kami sarankan ukurannya.']] },
-  { slug: 'catering-harian', name: 'Catering Harian', kw: 'Catering Harian Karyawan Bandung', d: 'Catering makan siang harian untuk kantor, pabrik, dan rumah tangga dengan menu bergilir.',
-    f: ['Menu bergilir tiap hari', 'Langganan mingguan atau bulanan', 'Pengiriman terjadwal', 'Harga hemat untuk langganan'],
-    q: [['Bisa berlangganan harian?', 'Bisa. Ada paket mingguan dan bulanan untuk karyawan maupun rumahan.']] },
-];
-const P = [{
-  slug: 'tips-memilih-catering-nasi-box-bandung', title: 'Tips Memilih Catering Nasi Box di Bandung', d: 'Panduan memilih catering nasi box: cek sertifikat halal, kebersihan, menu, dan ketepatan waktu.', date: '2025-01-15',
-  body: '<p>Memilih catering untuk acara bukan hanya soal harga. Berikut hal yang perlu dicek sebelum memesan.</p><h2>1. Pastikan halal dan higienis</h2><p>Tanyakan sertifikat halal dan standar kebersihan dapur.</p><h2>2. Lihat variasi menu</h2><p>Menu yang bervariasi membuat tamu lebih puas.</p><h2>3. Cek ketepatan waktu</h2><p>Tanyakan jadwal pengiriman dan area layanan.</p><p>Butuh bantuan? <a href="/kontak/">Hubungi kami</a> atau lihat <a href="/layanan/nasi-box/">layanan nasi box</a>.</p>' }];
+// ===== DATA DIBACA DARI FOLDER content/ (diedit lewat CMS) =====
+const matter = require('gray-matter'), { marked } = require('marked');
+const rd = d => fs.existsSync(d) ? fs.readdirSync(d).filter(f => f.endsWith('.md')).map(f => { const m = matter(fs.readFileSync(path.join(d, f), 'utf8')); return { ...m.data, slug: f.replace(/\.md$/, ''), body: marked.parse(m.content) }; }) : [];
+const C = JSON.parse(fs.readFileSync('content/settings.json', 'utf8'));
+['areas', 'social', 'reviews', 'partners'].forEach(k => C[k] = C[k] || []);
+const S = rd('content/layanan').sort((a, b) => (a.order || 99) - (b.order || 99)).map(s => ({ ...s, f: s.f || [], q: (s.q || []).map(x => [x.q, x.a]) }));
+const P = rd('content/blog').map(a => ({ ...a, date: a.date instanceof Date ? a.date.toISOString().slice(0, 10) : String(a.date) })).sort((a, b) => b.date.localeCompare(a.date));
+const PR = rd('content/produk');
+const AB = rd('content/halaman').find(x => x.slug === 'tentang-kami') || { body: '' };
 const GF = [['Apakah makanan MyDAF halal?', 'Kami menyajikan makanan halal. Hubungi kami untuk informasi sertifikasi.'], ['Area pengiriman mana saja?', 'Kami melayani ' + C.areas.join(', ') + ' dan sekitarnya.'], ['Bagaimana cara memesan?', 'Klik tombol WhatsApp, sebutkan jenis layanan, jumlah porsi, tanggal, dan alamat.']];
 // =================================================================
 
@@ -49,7 +30,7 @@ function page(o) {
   if (o.faqs && o.faqs.length) ld.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: o.faqs.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
   if (o.article) ld.push({ '@context': 'https://schema.org', '@type': 'Article', headline: o.h, datePublished: o.article, author: { '@type': 'Organization', name: C.name }, mainEntityOfPage: canon });
   const faq = o.faqs && o.faqs.length ? `<section class="alt"><div class="w"><h2>Pertanyaan yang sering diajukan</h2>${o.faqs.map(([q, a]) => `<details><summary>${e(q)}</summary><p>${e(a)}</p></details>`).join('')}</div></section>` : '';
-  const links = [['/', 'Beranda'], ['/layanan/', 'Layanan'], ['/tentang-kami/', 'Tentang'], ['/testimoni/', 'Testimoni'], ['/blog/', 'Blog'], ['/kontak/', 'Kontak']];
+  const links = [['/', 'Beranda'], ['/layanan/', 'Layanan'], ['/produk/', 'Produk'], ['/tentang-kami/', 'Tentang'], ['/testimoni/', 'Testimoni'], ['/blog/', 'Blog'], ['/kontak/', 'Kontak']];
   paths.push(o.p);
   W(o.p, `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(o.title)}</title><meta name="description" content="${e(o.desc)}"><link rel="canonical" href="${canon}"><meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="${o.article ? 'article' : 'website'}"><meta property="og:title" content="${e(o.title)}"><meta property="og:description" content="${e(o.desc)}"><meta property="og:url" content="${canon}"><meta property="og:image" content="${img}"><meta property="og:locale" content="id_ID"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#1f4d3a"><link rel="icon" href="/favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Nunito+Sans:wght@400;700&display=swap"><style>${CSS}</style><script type="application/ld+json">${JSON.stringify(ld)}</script></head><body><header><div class="w nav"><a class="logo" href="/">${C.name}</a><button id="mb" aria-label="Menu" aria-expanded="false">Menu</button><nav aria-label="Utama"><ul id="nv">${links.map(([h, t]) => `<li><a href="${h}">${t}</a></li>`).join('')}</ul></nav></div></header><main>${o.body}${faq}<section class="cta"><div class="w"><h2>Siap memesan?</h2><p>Sebutkan jenis layanan, jumlah porsi, tanggal, dan alamat. Kami balas secepatnya.</p><a class="btn" href="${wa('Halo MyDAF, saya ingin memesan catering.')}" rel="noopener">Chat WhatsApp</a></div></section></main><footer><div class="w grid"><div><h3 style="color:#fff">${C.name}</h3><p>Catering halal di ${C.city}: nasi box, prasmanan, tumpeng, dan catering harian.</p></div><div><h3 style="color:#fff">Layanan</h3>${S.map(s => `<a href="/layanan/${s.slug}/">${s.name}</a><br>`).join('')}</div><div><h3 style="color:#fff">Kontak</h3><p>${e(C.address)}<br><a href="tel:${C.phone.replace(/[^+\d]/g, '')}">${C.phone}</a><br>${C.email}</p></div></div><div class="w"><p style="margin-top:24px">© ${new Date().getFullYear()} ${C.name}. Hak cipta dilindungi.</p></div></footer><a class="btn wa" href="${wa('Halo MyDAF, saya ingin memesan catering.')}" rel="noopener" aria-label="Chat WhatsApp">WhatsApp</a><script>var b=document.getElementById('mb'),n=document.getElementById('nv');b.onclick=function(){b.setAttribute('aria-expanded',n.classList.toggle('o'))}</script></body></html>`);
 }
@@ -71,7 +52,7 @@ S.forEach(s => page({ p: 'layanan/' + s.slug, title: `${s.kw} Halal dan Murah | 
 
 // Halaman lain
 page({ p: 'tentang-kami', title: `Tentang ${C.name} | Catering ${C.city}`, desc: `Kenali ${C.name}, penyedia catering halal di ${C.city} untuk acara, kantor, dan rumah tangga.`, h: 'Tentang',
-  body: `<section><div class="w">${bc('Tentang kami')}<h1>Tentang ${C.name}</h1><p>${C.name} adalah usaha catering di ${C.city} yang melayani nasi box, prasmanan, tumpeng, dan catering harian. Kami menjaga rasa, kebersihan, dan ketepatan waktu di setiap pesanan.</p><p>TODO: tambahkan cerita usaha, tahun berdiri, sertifikat halal, dan foto dapur.</p></div></section>` });
+  body: `<section><div class="w">${bc('Tentang kami')}<h1>${e(AB.title || 'Tentang ' + C.name)}</h1>${AB.body}</div></section>` });
 page({ p: 'testimoni', title: `Testimoni Pelanggan | ${C.name}`, desc: `Ulasan pelanggan ${C.name}, catering halal di ${C.city}.`, h: 'Testimoni',
   body: `<section><div class="w">${bc('Testimoni')}<h1>Testimoni pelanggan</h1>${C.reviews.length ? `<div class="grid">${C.reviews.map(r => `<div class="c"><p>${e(r.t)}</p><h3 style="margin-top:10px">${e(r.n)}</h3></div>`).join('')}</div>` : '<p>Testimoni akan segera ditambahkan.</p>'}</div></section>` });
 page({ p: 'faq', title: `FAQ Catering ${C.city} | ${C.name}`, desc: `Jawaban pertanyaan umum soal pemesanan, menu, dan pengiriman catering ${C.name}.`, h: 'FAQ', faqs: GF.concat(...S.map(s => s.q)),
@@ -83,6 +64,9 @@ page({ p: 'blog', title: `Blog Catering dan Kuliner | ${C.name}`, desc: `Tips me
 P.forEach(a => page({ p: 'blog/' + a.slug, title: `${a.title} | ${C.name}`, desc: a.d, h: a.title, article: a.date,
   body: `<section><div class="w">${bc('<a href="/blog/">Blog</a>', a.title)}<h1>${a.title}</h1><p><time datetime="${a.date}">${a.date}</time></p>${a.body}</div></section>` }));
 
+page({ p: 'produk', title: `Produk dan Paket Catering ${C.city} | ${C.name}`, desc: `Daftar produk dan paket catering ${C.name} di ${C.city}.`, h: 'Produk',
+  body: `<section><div class="w">${bc('Produk')}<h1>Produk dan paket</h1>${PR.length ? `<div class="grid">${PR.map(x => `<div class="c">${x.image ? `<img src="${e(x.image)}" alt="${e(x.title)}" loading="lazy" style="width:100%;height:180px;object-fit:cover;border-radius:10px;margin-bottom:12px">` : ''}<h3>${e(x.title)}</h3>${x.price ? `<p><strong>${e(x.price)}</strong></p>` : ''}<p>${e(x.d || '')}</p><a class="btn" style="margin-top:12px" href="${wa('Halo MyDAF, saya ingin memesan ' + x.title + '.')}" rel="noopener">Pesan</a></div>`).join('')}</div>` : '<p>Produk akan segera ditambahkan.</p>'}</div></section>` });
+
 // 404, sitemap, robots, headers, favicon
 W('404.html', `<!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Halaman tidak ditemukan</title><style>${CSS}</style><body><section><div class="w"><h1>Halaman tidak ditemukan</h1><p>Alamat yang Anda buka tidak ada.</p><a class="btn" href="/">Ke beranda</a></div></section></body></html>`);
 const today = new Date().toISOString().slice(0, 10);
@@ -90,4 +74,5 @@ fs.writeFileSync('dist/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?><url
 fs.writeFileSync('dist/robots.txt', `User-agent: *\nAllow: /\nSitemap: ${C.domain}/sitemap.xml\n`);
 fs.writeFileSync('dist/_headers', `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n`);
 fs.writeFileSync('dist/favicon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1f4d3a"/><text x="32" y="43" font-size="30" font-family="sans-serif" font-weight="800" text-anchor="middle" fill="#e8a317">M</text></svg>`);
+if (fs.existsSync('public')) fs.cpSync('public', 'dist', { recursive: true });
 console.log('Selesai: ' + paths.length + ' halaman di ./dist');
